@@ -114,3 +114,58 @@ In programming, asynchronous techniques include:
 
 - Threads require a fixed amount of memory for their stack, typically several megabytes. Each thread has its stack to store local variables, method call states, etc., which adds significant overhead when creating a large number of threads.
 - Coroutines, however, don't have their own stack. They leverage the stack of the thread they run on and save their execution state (e.g., variable values, program counter) in a small object when suspended. This makes coroutines lightweight and enables them to scale efficiently.
+
+```kt
+@OptIn(DelicateCoroutinesApi::class)
+suspend fun runCoroutineTest(): Long = measureTimeMillis {
+    val jobs = mutableListOf<Job>()
+
+    for (i in 1..NUM_TASK) {
+        jobs.add(GlobalScope.launch {
+            for (x in 1..loops) {
+                delay(wait_ms)
+            }
+        })
+    }
+    jobs.forEach { it.join() }
+}
+
+fun runThreadTest(): Long = measureTimeMillis {
+    val threads = mutableListOf<Thread>()
+
+    for (i in 1..NUM_TASK) {
+        threads.add(Thread {
+            for (x in 1..loops) {
+                sleep(wait_ms)
+            }
+        }.apply { start() })
+    }
+    threads.forEach { it.join() }
+}
+
+@OptIn(DelicateCoroutinesApi::class)
+suspend fun main() {
+    println("System Information:")
+    println("Available processors: ${Runtime.getRuntime().availableProcessors()}")
+    println("Max memory: ${Runtime.getRuntime().maxMemory() / 1024 / 1024}MB")
+    println("\nRunning benchmarks...")
+
+    repeat(3) { iteration ->
+        println("\nIteration ${iteration + 1}")
+
+        val threadTime = runThreadTest()
+        println("Thread implementation took: ${threadTime}ms")
+
+        // Give system some time to clean up
+        delay(1000)
+
+        val coroutineTime = runCoroutineTest()
+        println("Coroutine implementation took: ${coroutineTime}ms")
+
+        // Calculate difference
+        val difference = threadTime - coroutineTime
+        val faster = if (difference > 0) "Coroutines" else "Threads"
+        println("$faster were faster by ${kotlin.math.abs(difference)}ms")
+    }
+}
+```
